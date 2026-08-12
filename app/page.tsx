@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
-import { balanceTitle, normalizeTitle } from "./balance-title";
+import { balanceTitleForElement, normalizeTitle } from "balanced-title-wrap";
 
 const SAMPLE_TITLES = [
   "마케팅에서 중요하게 생각하는 법칙은 단 하나",
@@ -33,9 +33,7 @@ export default function Home() {
       return;
     }
 
-    const styles = window.getComputedStyle(title);
-    const measure = createTextMeasurer(normalized, styles);
-    const lines = balanceTitle(normalized, guide.clientWidth, measure);
+    const lines = balanceTitleForElement(normalized, guide.clientWidth, title);
     setTitleLines(lines);
     setLineCount(lines.length);
   }, [balanced, text]);
@@ -175,45 +173,6 @@ export default function Home() {
       </footer>
     </main>
   );
-}
-
-function createTextMeasurer(title: string, styles: CSSStyleDeclaration) {
-  const words = title.split(" ");
-  const phrases = new Set<string>([" ", title, ...words]);
-
-  for (let start = 0; start < words.length; start += 1) {
-    for (let end = start + 1; end <= words.length; end += 1) {
-      phrases.add(words.slice(start, end).join(" "));
-    }
-  }
-
-  const measurer = document.createElement("div");
-  Object.assign(measurer.style, {
-    position: "fixed",
-    left: "-10000px",
-    top: "0",
-    visibility: "hidden",
-    pointerEvents: "none",
-    contain: "layout style paint",
-    font: styles.font,
-    fontKerning: styles.fontKerning,
-    letterSpacing: styles.letterSpacing,
-    whiteSpace: "nowrap",
-  });
-
-  const entries = [...phrases].map((phrase) => {
-    const span = document.createElement("span");
-    span.style.display = "block";
-    span.style.width = "max-content";
-    span.textContent = phrase;
-    measurer.append(span);
-    return [phrase, span] as const;
-  });
-
-  document.body.append(measurer);
-  const widths = new Map(entries.map(([phrase, span]) => [phrase, span.getBoundingClientRect().width]));
-  measurer.remove();
-  return (value: string) => widths.get(value) ?? 0;
 }
 
 type ControlProps = {

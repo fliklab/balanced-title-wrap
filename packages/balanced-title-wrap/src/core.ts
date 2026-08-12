@@ -1,40 +1,79 @@
 export type MeasureText = (value: string) => number;
 
+export type BalanceTitleOptions = {
+  /** Characters that become preferred break boundaries when followed by whitespace. */
+  priorityEndings?: readonly string[];
+  /** Penalizes a longer line following a shorter line. Set to 0 to disable. */
+  ascendingLinePenalty?: number;
+};
+
 type Candidate = {
   lines: string[];
   balanceCost: number;
   lastWidth: number | null;
 };
 
-const PRIORITY_ENDING = /[,.]$/;
+const DEFAULT_PRIORITY_ENDINGS = [",", "."] as const;
 
-export function normalizeTitle(value: string) {
+export function normalizeTitle(value: string): string {
   return value.trim().replace(/\s+/g, " ");
 }
 
-export function hasPriorityEnding(value: string) {
-  return PRIORITY_ENDING.test(value);
+export function hasPriorityEnding(
+  value: string,
+  priorityEndings: readonly string[] = DEFAULT_PRIORITY_ENDINGS,
+): boolean {
+  return priorityEndings.some((ending) => ending.length > 0 && value.endsWith(ending));
 }
 
 export function balanceTitle(
   value: string,
   maxWidth: number,
   measureText: MeasureText,
+  options: BalanceTitleOptions = {},
 ): string[] {
+  assertMaxWidth(maxWidth);
+
   const normalized = normalizeTitle(value);
   if (!normalized) return [""];
   if (measureText(normalized) <= maxWidth) return [normalized];
 
+  const priorityEndings = options.priorityEndings ?? DEFAULT_PRIORITY_ENDINGS;
+  const ascendingLinePenalty = options.ascendingLinePenalty ?? 0.5;
   const words = normalized.split(" ");
-  const priorityGroups = splitAtPriorityEndings(words);
+  const priorityGroups = splitAtPriorityEndings(words, priorityEndings);
+
   if (priorityGroups.length > 1) {
-    return priorityGroups.flatMap((group) => balanceWords(group, maxWidth, measureText));
+    return priorityGroups.flatMap((group) =>
+      balanceWords(group, maxWidth, measureText, ascendingLinePenalty),
+    );
   }
 
-  return balanceWords(words, maxWidth, measureText);
+  return balanceWords(words, maxWidth, measureText, ascendingLinePenalty);
 }
 
-function balanceWords(words: string[], maxWidth: number, measureText: MeasureText) {
+export function getMeasurementCandidates(value: string): string[] {
+  const normalized = normalizeTitle(value);
+  if (!normalized) return [""];
+
+  const words = normalized.split(" ");
+  const phrases = new Set<string>([" ", normalized, ...words]);
+
+  for (let start = 0; start < words.length; start += 1) {
+    for (let end = start + 1; end <= words.length; end += 1) {
+      phrases.add(words.slice(start, end).join(" "));
+    }
+  }
+
+  return [...phrases];
+}
+
+function balanceWords(
+  words: string[],
+  maxWidth: number,
+  measureText: MeasureText,
+  ascendingLinePenalty: number,
+): string[] {
   const fullLine = words.join(" ");
   if (measureText(fullLine) <= maxWidth) return [fullLine];
 
@@ -66,12 +105,17 @@ function balanceWords(words: string[], maxWidth: number, measureText: MeasureTex
           : 0;
         const next: Candidate = {
           lines: [...candidate.lines, line],
-          balanceCost: candidate.balanceCost + distance * distance + upwardStep * upwardStep * 0.5,
+          balanceCost:
+            candidate.balanceCost +
+            distance * distance +
+            upwardStep * upwardStep * ascendingLinePenalty,
           lastWidth: lineWidth,
         };
 
         const current = nextStates.get(end);
-        if (!current || isBetter(next, current)) nextStates.set(end, next);
+        if (!current || next.balanceCost < current.balanceCost) {
+          nextStates.set(end, next);
+        }
       }
     }
 
@@ -81,13 +125,16 @@ function balanceWords(words: string[], maxWidth: number, measureText: MeasureTex
   return states.get(words.length)?.lines ?? greedyLines(words, maxWidth, measureText);
 }
 
-function splitAtPriorityEndings(words: string[]) {
+function splitAtPriorityEndings(
+  words: string[],
+  priorityEndings: readonly string[],
+): string[][] {
   const groups: string[][] = [];
   let current: string[] = [];
 
   words.forEach((word, index) => {
     current.push(word);
-    if (index < words.length - 1 && hasPriorityEnding(word)) {
+    if (index < words.length - 1 && hasPriorityEnding(word, priorityEndings)) {
       groups.push(current);
       current = [];
     }
@@ -97,11 +144,19 @@ function splitAtPriorityEndings(words: string[]) {
   return groups;
 }
 
-function minimumLineCount(words: string[], maxWidth: number, measureText: MeasureText) {
+function minimumLineCount(
+  words: string[],
+  maxWidth: number,
+  measureText: MeasureText,
+): number {
   return greedyLines(words, maxWidth, measureText).length;
 }
 
-function greedyLines(words: string[], maxWidth: number, measureText: MeasureText) {
+function greedyLines(
+  words: string[],
+  maxWidth: number,
+  measureText: MeasureText,
+): string[] {
   const lines: string[] = [];
   let current = "";
 
@@ -119,6 +174,8 @@ function greedyLines(words: string[], maxWidth: number, measureText: MeasureText
   return lines;
 }
 
-function isBetter(next: Candidate, current: Candidate) {
-  return next.balanceCost < current.balanceCost;
+function assertMaxWidth(maxWidth: number): void {
+  if (!Number.isFinite(maxWidth) || maxWidth <= 0) {
+    throw new RangeError("maxWidth must be a finite number greater than 0.");
+  }
 }
