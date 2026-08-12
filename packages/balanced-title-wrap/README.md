@@ -90,3 +90,9 @@ comfortably within an interactive resize flow.
 ## License
 
 MIT
+
+## Releases and provenance
+
+Releases are published from the public GitHub repository through npm Trusted
+Publishing. No long-lived npm publish token is stored in GitHub, and npm
+automatically attaches provenance to each published version.

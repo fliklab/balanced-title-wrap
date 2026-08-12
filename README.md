@@ -40,7 +40,7 @@ MIT
 
 ## Releasing
 
-Releases are published from GitHub after the package name and npm owner are
-confirmed. The first publish requires an npm account with 2FA and either a
-granular automation token stored as `NPM_TOKEN` or a configured npm trusted
-publisher. Subsequent GitHub Releases trigger the publish workflow.
+Releases are published from GitHub through npm Trusted Publishing. The
+`publish.yml` workflow uses short-lived OIDC credentials, stores no npm token,
+and automatically receives npm provenance. Publishing a GitHub Release triggers
+the workflow.
