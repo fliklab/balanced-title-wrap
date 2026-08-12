@@ -1,11 +1,12 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { balanceTitle, normalizeTitle } from "./balance-title";
 
 const SAMPLE_TITLES = [
   "마케팅에서 중요하게 생각하는 법칙은 단 하나",
-  "좋은 디자인은 복잡함을 더하는 것이 아니라 덜어내는 일입니다",
-  "우리가 일하는 방식을 더 단순하고 명확하게",
+  "그렇지만, 우리는 중요하게 생각하는 것이 따로 있다.",
+  "36.5도의 온도는 처음으로 회원가입했을 때의 기본값이다.",
 ];
 
 export default function Home() {
@@ -14,24 +15,51 @@ export default function Home() {
   const [width, setWidth] = useState(520);
   const [balanced, setBalanced] = useState(true);
   const [lineCount, setLineCount] = useState(1);
+  const [titleLines, setTitleLines] = useState([normalizeTitle(SAMPLE_TITLES[0])]);
   const titleRef = useRef<HTMLHeadingElement>(null);
+  const guideRef = useRef<HTMLDivElement>(null);
 
-  useLayoutEffect(() => {
+  const updateLines = useCallback(() => {
     const title = titleRef.current;
-    if (!title) return;
+    const guide = guideRef.current;
+    if (!title || !guide) return;
 
-    const measure = () => {
+    const normalized = normalizeTitle(text) || "제목을 입력하세요";
+    if (!balanced) {
+      setTitleLines([normalized]);
       const styles = window.getComputedStyle(title);
       const lineHeight = Number.parseFloat(styles.lineHeight);
       setLineCount(Math.max(1, Math.round(title.getBoundingClientRect().height / lineHeight)));
-    };
+      return;
+    }
 
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(title);
-    document.fonts?.ready.then(measure);
+    const styles = window.getComputedStyle(title);
+    const measure = createTextMeasurer(normalized, styles);
+    const lines = balanceTitle(normalized, guide.clientWidth, measure);
+    setTitleLines(lines);
+    setLineCount(lines.length);
+  }, [balanced, text]);
+
+  useLayoutEffect(() => {
+    const title = titleRef.current;
+    const guide = guideRef.current;
+    if (!title || !guide) return;
+
+    updateLines();
+    const observer = new ResizeObserver(updateLines);
+    observer.observe(guide);
+    document.fonts?.ready.then(updateLines);
     return () => observer.disconnect();
-  }, [text, fontSize, width, balanced]);
+  }, [text, fontSize, width, balanced, updateLines]);
+
+  useLayoutEffect(() => {
+    if (balanced) return;
+    const title = titleRef.current;
+    if (!title) return;
+    const styles = window.getComputedStyle(title);
+    const lineHeight = Number.parseFloat(styles.lineHeight);
+    setLineCount(Math.max(1, Math.round(title.getBoundingClientRect().height / lineHeight)));
+  }, [balanced, fontSize, text, titleLines, width]);
 
   return (
     <main>
@@ -40,11 +68,11 @@ export default function Home() {
           <span className="brand-mark" aria-hidden="true">B</span>
           <span>Balance Wrap Lab</span>
         </a>
-        <p>CSS · text-wrap: balance</p>
+        <p>Smart wrapping · punctuation aware</p>
       </header>
 
       <section className="intro reveal reveal-2" id="top">
-        <h1>제목 줄바꿈을<br />눈으로 조율하세요.</h1>
+        <h1>제목 줄바꿈을 눈으로 조율하세요.</h1>
         <p>
           줄바꿈 문자를 넣지 않고도 각 줄의 길이를 자연스럽게 맞춥니다.
           내용을 입력하고 크기와 폭을 움직여 결과를 확인해보세요.
@@ -52,6 +80,36 @@ export default function Home() {
       </section>
 
       <section className="lab reveal reveal-3" aria-label="균형 줄바꿈 테스트 도구">
+        <div className="preview-panel">
+          <div className="preview-meta" aria-live="polite">
+            <span>{balanced ? "문장부호 우선 균형" : "일반 줄바꿈"}</span>
+            <span>{width}px · {fontSize}px · {lineCount}줄</span>
+          </div>
+
+          <div className="preview-stage">
+            <div ref={guideRef} className="width-guide" style={{ width: `min(${width}px, 100%)` }}>
+              <span className="guide-cap guide-cap-left" aria-hidden="true" />
+              <span className="guide-cap guide-cap-right" aria-hidden="true" />
+              <h2
+                ref={titleRef}
+                className={balanced ? "is-balanced" : ""}
+                style={{ fontSize: `${fontSize}px` }}
+              >
+                {balanced
+                  ? titleLines.map((line, index) => <span className="title-line" key={`${line}-${index}`}>{line}</span>)
+                  : (normalizeTitle(text) || "제목을 입력하세요")}
+              </h2>
+            </div>
+          </div>
+
+          <div className="code-strip">
+            <code>
+              {balanced ? "한 줄 확인 → 구두점 경계 → 구간별 폭 균형" : "text-wrap: wrap; word-break: keep-all;"}
+            </code>
+            <span>문자열에 줄바꿈 문자 없음</span>
+          </div>
+        </div>
+
         <aside className="controls">
           <div className="control-heading">
             <h2>설정</h2>
@@ -67,22 +125,24 @@ export default function Home() {
             </button>
           </div>
 
-          <label className="field text-field">
-            <span>제목 내용</span>
-            <textarea
-              value={text}
-              onChange={(event) => setText(event.target.value)}
-              rows={4}
-              spellCheck={false}
-            />
-          </label>
+          <div className="text-control">
+            <label className="field text-field">
+              <span>제목 내용</span>
+              <textarea
+                value={text}
+                onChange={(event) => setText(event.target.value)}
+                rows={3}
+                spellCheck={false}
+              />
+            </label>
 
-          <div className="samples" aria-label="예시 제목">
-            {SAMPLE_TITLES.map((sample, index) => (
-              <button key={sample} type="button" onClick={() => setText(sample)}>
-                예시 {index + 1}
-              </button>
-            ))}
+            <div className="samples" aria-label="예시 제목">
+              {SAMPLE_TITLES.map((sample, index) => (
+                <button key={sample} type="button" onClick={() => setText(sample)}>
+                  예시 {index + 1}
+                </button>
+              ))}
+            </div>
           </div>
 
           <Control
@@ -104,45 +164,56 @@ export default function Home() {
           />
 
           <p className="hint">
-            공백을 기준으로 단어를 유지하며, 화면 폭이 바뀌면 브라우저가 즉시 다시 계산합니다.
+            전체가 한 줄에 들어가면 나누지 않습니다. 넘칠 때는 쉼표나 마침표 뒤 공백을 먼저 경계로 삼고, 36.5처럼 글자가 붙으면 무시합니다.
           </p>
         </aside>
-
-        <div className="preview-panel">
-          <div className="preview-meta" aria-live="polite">
-            <span>{balanced ? "균형 줄바꿈" : "일반 줄바꿈"}</span>
-            <span>{width}px · {fontSize}px · {lineCount}줄</span>
-          </div>
-
-          <div className="preview-stage">
-            <div className="width-guide" style={{ width: `min(${width}px, 100%)` }}>
-              <span className="guide-cap guide-cap-left" aria-hidden="true" />
-              <span className="guide-cap guide-cap-right" aria-hidden="true" />
-              <h2
-                ref={titleRef}
-                className={balanced ? "is-balanced" : ""}
-                style={{ fontSize: `${fontSize}px` }}
-              >
-                {text || "제목을 입력하세요"}
-              </h2>
-            </div>
-          </div>
-
-          <div className="code-strip">
-            <code>
-              text-wrap: {balanced ? "balance" : "wrap"}; word-break: keep-all;
-            </code>
-            <span>HTML에 줄바꿈 문자 없음</span>
-          </div>
-        </div>
       </section>
 
       <footer className="reveal reveal-4">
-        <p>짧은 제목과 카피를 위한 네이티브 CSS 실험실</p>
-        <p>JavaScript 줄바꿈 계산 없음</p>
+        <p>짧은 제목과 카피를 위한 균형 줄바꿈 실험실</p>
+        <p>짧은 제목은 거의 즉시 계산</p>
       </footer>
     </main>
   );
+}
+
+function createTextMeasurer(title: string, styles: CSSStyleDeclaration) {
+  const words = title.split(" ");
+  const phrases = new Set<string>([" ", title, ...words]);
+
+  for (let start = 0; start < words.length; start += 1) {
+    for (let end = start + 1; end <= words.length; end += 1) {
+      phrases.add(words.slice(start, end).join(" "));
+    }
+  }
+
+  const measurer = document.createElement("div");
+  Object.assign(measurer.style, {
+    position: "fixed",
+    left: "-10000px",
+    top: "0",
+    visibility: "hidden",
+    pointerEvents: "none",
+    contain: "layout style paint",
+    font: styles.font,
+    fontKerning: styles.fontKerning,
+    letterSpacing: styles.letterSpacing,
+    whiteSpace: "nowrap",
+  });
+
+  const entries = [...phrases].map((phrase) => {
+    const span = document.createElement("span");
+    span.style.display = "block";
+    span.style.width = "max-content";
+    span.textContent = phrase;
+    measurer.append(span);
+    return [phrase, span] as const;
+  });
+
+  document.body.append(measurer);
+  const widths = new Map(entries.map(([phrase, span]) => [phrase, span.getBoundingClientRect().width]));
+  measurer.remove();
+  return (value: string) => widths.get(value) ?? 0;
 }
 
 type ControlProps = {

@@ -83,15 +83,15 @@ footer p {
 
 .intro {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.65fr);
+  grid-template-columns: minmax(0, 1.25fr) minmax(260px, 0.75fr);
   gap: 48px;
   align-items: end;
-  padding: 74px 0 64px;
+  padding: 50px 0 44px;
 }
 
 .intro h1 {
   margin: 0;
-  font-size: clamp(44px, 5.25vw, 78px);
+  font-size: clamp(40px, 4.3vw, 64px);
   line-height: 0.98;
   letter-spacing: -0.065em;
   font-weight: 820;
@@ -108,16 +108,18 @@ footer p {
 }
 
 .lab {
-  min-height: 650px;
-  display: grid;
-  grid-template-columns: 330px minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   border-top: 1px solid var(--ink);
   border-bottom: 1px solid var(--line);
 }
 
 .controls {
-  padding: 30px 30px 34px 0;
-  border-right: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: minmax(230px, 1.45fr) minmax(180px, 0.75fr) minmax(180px, 0.75fr);
+  gap: 24px 42px;
+  padding: 28px 0 30px;
+  border-top: 1px solid var(--ink);
 }
 
 .control-heading,
@@ -131,7 +133,8 @@ footer {
 }
 
 .control-heading {
-  margin-bottom: 34px;
+  grid-column: 1 / -1;
+  margin-bottom: -2px;
 }
 
 .control-heading h2 {
@@ -220,7 +223,7 @@ textarea:focus {
 .samples {
   display: flex;
   gap: 6px;
-  margin: 9px 0 34px;
+  margin: 9px 0 0;
 }
 
 .samples button {
@@ -238,10 +241,6 @@ textarea:focus {
   border-color: #aaa79e;
   background: rgba(255, 255, 255, 0.6);
   color: var(--ink);
-}
-
-.range-field + .range-field {
-  margin-top: 31px;
 }
 
 .number-input {
@@ -330,8 +329,9 @@ textarea:focus {
 }
 
 .hint {
-  margin: 38px 0 0;
-  padding-top: 18px;
+  grid-column: 1 / -1;
+  margin: 0;
+  padding-top: 16px;
   border-top: 1px solid var(--line);
   color: var(--muted);
   font-size: 11px;
@@ -342,8 +342,7 @@ textarea:focus {
 .preview-panel {
   min-width: 0;
   display: grid;
-  grid-template-rows: 54px minmax(500px, 1fr) 54px;
-  padding-left: 30px;
+  grid-template-rows: 54px minmax(460px, 1fr) 54px;
 }
 
 .preview-meta {
@@ -414,7 +413,14 @@ textarea:focus {
 }
 
 .width-guide h2.is-balanced {
-  text-wrap: balance;
+  display: flex;
+  flex-direction: column;
+  text-wrap: wrap;
+}
+
+.title-line {
+  display: block;
+  white-space: nowrap;
 }
 
 .code-strip {
@@ -475,19 +481,11 @@ footer {
     max-width: 600px;
   }
 
-  .lab {
-    grid-template-columns: 1fr;
-  }
-
   .controls {
-    padding: 28px 0 34px;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
+    grid-template-columns: 1fr 1fr;
   }
 
-  .preview-panel {
-    padding-left: 0;
-  }
+  .text-control { grid-column: 1 / -1; }
 }
 
 @media (max-width: 560px) {
@@ -516,7 +514,7 @@ footer {
   }
 
   .preview-panel {
-    grid-template-rows: 50px minmax(390px, 1fr) 50px;
+    grid-template-rows: 50px minmax(360px, 1fr) 50px;
   }
 
   .preview-stage {
@@ -525,6 +523,17 @@ footer {
 
   .code-strip span {
     display: none;
+  }
+
+  .controls {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .text-control,
+  .control-heading,
+  .hint {
+    grid-column: 1;
   }
 
   footer p:last-child {
