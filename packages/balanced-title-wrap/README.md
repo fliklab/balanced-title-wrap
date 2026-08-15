@@ -1,7 +1,7 @@
 # balanced-title-wrap
 
 Fast, dependency-free title wrapping that balances line widths, keeps words
-intact, and prefers punctuation boundaries such as `, ` and `. `.
+intact, and prefers punctuation boundaries such as `, `, `. `, `! `, and `? `.
 
 ## Install
 
@@ -60,7 +60,7 @@ const lines = balanceTitle(
 
 1. Keep the title on one line when it fits.
 2. Keep whitespace-delimited words intact.
-3. When wrapping is necessary, prefer boundaries after `, ` and `. `.
+3. When wrapping is necessary, prefer boundaries after `, `, `. `, `! `, and `? `.
 4. Do not treat joined punctuation such as `36.5` as a boundary.
 5. Balance any remaining long segment across multiple lines.
 

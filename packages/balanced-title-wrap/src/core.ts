@@ -13,7 +13,7 @@ type Candidate = {
   lastWidth: number | null;
 };
 
-const DEFAULT_PRIORITY_ENDINGS = [",", "."] as const;
+const DEFAULT_PRIORITY_ENDINGS = [",", ".", "!", "?"] as const;
 
 export function normalizeTitle(value: string): string {
   return value.trim().replace(/\s+/g, " ");

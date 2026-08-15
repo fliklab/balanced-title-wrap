@@ -6,6 +6,7 @@ import { balanceTitleForElement, normalizeTitle } from "balanced-title-wrap";
 const SAMPLE_TITLES = [
   "마케팅에서 중요하게 생각하는 법칙은 단 하나",
   "그렇지만, 우리는 중요하게 생각하는 것이 따로 있다.",
+  "정말 중요한 것은 무엇일까? 우리는 다시 생각해본다.",
   "36.5도의 온도는 처음으로 회원가입했을 때의 기본값이다.",
 ];
 
@@ -162,7 +163,9 @@ export default function Home() {
           />
 
           <p className="hint">
-            전체가 한 줄에 들어가면 나누지 않습니다. 넘칠 때는 쉼표나 마침표 뒤 공백을 먼저 경계로 삼고, 36.5처럼 글자가 붙으면 무시합니다.
+            전체가 한 줄에 들어가면 나누지 않습니다. 넘칠 때는 쉼표, 마침표,
+            느낌표, 물음표 뒤 공백을 먼저 경계로 삼고, 36.5처럼 글자가 붙으면
+            무시합니다.
           </p>
         </aside>
       </section>

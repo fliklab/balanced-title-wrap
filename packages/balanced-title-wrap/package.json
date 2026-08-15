@@ -1,6 +1,6 @@
 {
   "name": "balanced-title-wrap",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Fast, punctuation-aware balanced title wrapping for the web.",
   "license": "MIT",
   "type": "module",
