@@ -10,7 +10,7 @@ const SAMPLE_TITLES = [
   "36.5도의 온도는 처음으로 회원가입했을 때의 기본값이다.",
 ];
 
-const CODE_PANEL_WIDTH = 380;
+const CODE_PANEL_WIDTH = 560;
 const PREVIEW_STAGE_HORIZONTAL_PADDING = 56;
 
 export default function Home() {
@@ -196,7 +196,11 @@ export default function Home() {
                   <div className="code-panel-heading">
                     <div>
                       <strong>실제 렌더 결과</strong>
-                      <span>{balanced ? "줄별 span 구조" : "단일 텍스트 구조"}</span>
+                      <span>
+                        {codeSideBySide
+                          ? "HTML · CSS 동시 보기"
+                          : balanced ? "줄별 span 구조" : "단일 텍스트 구조"}
+                      </span>
                     </div>
                     <button type="button" onClick={() => setCodeOpen(false)} aria-label="코드 패널 닫기">
                       닫기
@@ -209,25 +213,34 @@ export default function Home() {
                       : "HTML은 단일 텍스트 노드입니다. 브라우저가 CSS의 단어 단위 규칙에 따라 자동으로 줄을 나눕니다."}
                   </p>
 
-                  <div className="code-tabs" role="tablist" aria-label="코드 종류">
-                    {(["html", "css"] as const).map((tab) => (
-                      <button
-                        key={tab}
-                        type="button"
-                        role="tab"
-                        aria-selected={codeTab === tab}
-                        aria-controls="rendered-code"
-                        className={codeTab === tab ? "is-active" : ""}
-                        onClick={() => setCodeTab(tab)}
-                      >
-                        {tab.toUpperCase()}
-                      </button>
-                    ))}
-                  </div>
+                  {codeSideBySide ? (
+                    <div className="code-dual">
+                      <CodeBlock label="HTML" code={renderedHtml} />
+                      <CodeBlock label="CSS" code={renderedCss} />
+                    </div>
+                  ) : (
+                    <div className="code-single">
+                      <div className="code-tabs" role="tablist" aria-label="코드 종류">
+                        {(["html", "css"] as const).map((tab) => (
+                          <button
+                            key={tab}
+                            type="button"
+                            role="tab"
+                            aria-selected={codeTab === tab}
+                            aria-controls="rendered-code"
+                            className={codeTab === tab ? "is-active" : ""}
+                            onClick={() => setCodeTab(tab)}
+                          >
+                            {tab.toUpperCase()}
+                          </button>
+                        ))}
+                      </div>
 
-                  <pre id="rendered-code" role="tabpanel" tabIndex={0}>
-                    <code>{codeTab === "html" ? renderedHtml : renderedCss}</code>
-                  </pre>
+                      <pre id="rendered-code" role="tabpanel" tabIndex={0}>
+                        <code>{codeTab === "html" ? renderedHtml : renderedCss}</code>
+                      </pre>
+                    </div>
+                  )}
                 </aside>
               )}
             </div>
@@ -315,6 +328,21 @@ function escapeHtml(value: string): string {
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
+}
+
+function CodeBlock({ label, code }: { label: string; code: string }) {
+  return (
+    <section className="code-section" aria-label={`${label} 코드`}>
+      <span className="code-section-label">{label}</span>
+      <textarea
+        className="code-output"
+        aria-label={`${label} 코드 내용`}
+        value={code}
+        readOnly
+        spellCheck={false}
+      />
+    </section>
+  );
 }
 
 type ControlProps = {
