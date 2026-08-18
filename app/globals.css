@@ -99,7 +99,6 @@ footer p {
 }
 
 .intro p {
-  max-width: 460px;
   margin: 0 0 4px;
   color: var(--muted);
   font-size: 15px;
@@ -702,6 +701,9 @@ footer {
 .reveal {
   opacity: 0;
   transform: translateY(12px);
+}
+
+.reveal.is-visible {
   animation: enter 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
@@ -726,10 +728,6 @@ footer {
     grid-template-columns: 1fr;
     gap: 28px;
     padding: 58px 0 48px;
-  }
-
-  .intro p {
-    max-width: 600px;
   }
 
   .controls {
@@ -817,6 +815,13 @@ footer {
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
+
+  .reveal {
+    opacity: 1;
+    transform: none;
+    animation: none !important;
+  }
+
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-delay: 0ms !important;
