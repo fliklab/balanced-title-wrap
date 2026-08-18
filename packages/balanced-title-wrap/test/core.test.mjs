@@ -41,6 +41,20 @@ test("prioritizes punctuation boundaries followed by whitespace", () => {
   );
 });
 
+test("treats punctuation as a weighted candidate instead of a forced break", () => {
+  assert.deepEqual(
+    balanceTitle("첫 문장이다. 둘째 문장이다. 마지막 내용", 15, characterWidth),
+    ["첫 문장이다.", "둘째 문장이다. 마지막 내용"],
+  );
+});
+
+test("allows a substantially better balance to outweigh punctuation", () => {
+  assert.deepEqual(
+    balanceTitle("짧다. 하나 둘 셋 넷 다 라", 12, characterWidth),
+    ["짧다. 하나 둘", "셋 넷 다 라"],
+  );
+});
+
 test("does not treat punctuation joined to following text as a boundary", () => {
   const lines = balanceTitle(
     "36.5도의 온도는 처음으로 회원가입했을 때의 기본값이다.",
@@ -63,4 +77,8 @@ test("normalizes whitespace and validates maxWidth", () => {
   assert.equal(hasPriorityEnding("질문?"), true);
   assert.equal(hasPriorityEnding("감탄!"), true);
   assert.throws(() => balanceTitle("제목", 0, characterWidth), RangeError);
+  assert.throws(
+    () => balanceTitle("하나 둘", 3, characterWidth, { priorityBreakBonus: -1 }),
+    RangeError,
+  );
 });

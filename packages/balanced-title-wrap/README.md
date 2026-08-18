@@ -64,13 +64,21 @@ const lines = balanceTitle(
 4. Do not treat joined punctuation such as `36.5` as a boundary.
 5. Balance any remaining long segment across multiple lines.
 
-Customize preferred punctuation when needed:
+Preferred punctuation is weighted, not forced. The algorithm keeps the minimum
+line count and may choose another whitespace boundary when it produces a
+substantially better balance.
+
+Customize preferred punctuation and its weight when needed:
 
 ```ts
 balanceTitle(text, width, measureText, {
-  priorityEndings: [",", ".", "!", "?"],
+  priorityEndings: [",", ".", "!", "?", ";"],
+  priorityBreakBonus: 0.75,
 });
 ```
+
+`priorityBreakBonus` defaults to `0.55`. Set it to `0` to turn punctuation
+preference off without changing `priorityEndings`.
 
 ## API
 
