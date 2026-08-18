@@ -1,30 +1,74 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { balanceTitleForElement, normalizeTitle } from "balanced-title-wrap";
 
 const SAMPLE_TITLES = [
   "마케팅에서 중요하게 생각하는 법칙은 단 하나",
   "그렇지만, 우리는 중요하게 생각하는 것이 따로 있다.",
+  "정말 중요한 것은 무엇일까? 우리는 다시 생각해본다.",
   "36.5도의 온도는 처음으로 회원가입했을 때의 기본값이다.",
 ];
+
+const CODE_PANEL_WIDTH = 560;
+const PREVIEW_STAGE_HORIZONTAL_PADDING = 56;
 
 export default function Home() {
   const [text, setText] = useState(SAMPLE_TITLES[0]);
   const [fontSize, setFontSize] = useState(52);
   const [width, setWidth] = useState(520);
   const [balanced, setBalanced] = useState(true);
+  const [codeOpen, setCodeOpen] = useState(false);
+  const [codeSideBySide, setCodeSideBySide] = useState(false);
+  const [codeTab, setCodeTab] = useState<"html" | "css">("html");
   const [lineCount, setLineCount] = useState(1);
   const [titleLines, setTitleLines] = useState([normalizeTitle(SAMPLE_TITLES[0])]);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const guideRef = useRef<HTMLDivElement>(null);
+  const previewShellRef = useRef<HTMLDivElement>(null);
+  const displayText = normalizeTitle(text) || "제목을 입력하세요";
+
+  const renderedHtml = balanced
+    ? [
+        `<div class="width-guide" style="width: min(${width}px, 100%)">`,
+        `  <h2 class="is-balanced" style="font-size: ${fontSize}px">`,
+        ...titleLines.map(
+          (line) => `    <span class="title-line">${escapeHtml(line)}</span>`,
+        ),
+        "  </h2>",
+        "</div>",
+      ].join("\n")
+    : [
+        `<div class="width-guide" style="width: min(${width}px, 100%)">`,
+        `  <h2 style="font-size: ${fontSize}px">`,
+        `    ${escapeHtml(displayText)}`,
+        "  </h2>",
+        "</div>",
+      ].join("\n");
+
+  const renderedCss = balanced
+    ? `.width-guide h2.is-balanced {
+  display: flex;
+  flex-direction: column;
+  word-break: keep-all;
+}
+
+.title-line {
+  display: block;
+  white-space: nowrap;
+}`
+    : `.width-guide h2 {
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: normal;
+}`;
 
   const updateLines = useCallback(() => {
     const title = titleRef.current;
     const guide = guideRef.current;
     if (!title || !guide) return;
 
-    const normalized = normalizeTitle(text) || "제목을 입력하세요";
+    const normalized = displayText;
     if (!balanced) {
       setTitleLines([normalized]);
       const styles = window.getComputedStyle(title);
@@ -36,7 +80,57 @@ export default function Home() {
     const lines = balanceTitleForElement(normalized, guide.clientWidth, title);
     setTitleLines(lines);
     setLineCount(lines.length);
-  }, [balanced, text]);
+  }, [balanced, displayText]);
+
+  useEffect(() => {
+    if (!codeOpen) return;
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setCodeOpen(false);
+    };
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [codeOpen]);
+
+  useEffect(() => {
+    const elements = Array.from(document.querySelectorAll<HTMLElement>(".reveal"));
+
+    if (!("IntersectionObserver" in window)) {
+      elements.forEach((element) => element.classList.add("is-visible"));
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add("is-visible");
+          observer.unobserve(entry.target);
+        });
+      },
+      { rootMargin: "0px 0px -8%", threshold: 0.08 },
+    );
+
+    elements.forEach((element) => observer.observe(element));
+    return () => observer.disconnect();
+  }, []);
+
+  useLayoutEffect(() => {
+    const shell = previewShellRef.current;
+    if (!shell) return;
+
+    const updateCodeLayout = () => {
+      setCodeSideBySide(
+        shell.clientWidth >= width + CODE_PANEL_WIDTH + PREVIEW_STAGE_HORIZONTAL_PADDING,
+      );
+    };
+
+    updateCodeLayout();
+    const observer = new ResizeObserver(updateCodeLayout);
+    observer.observe(shell);
+    return () => observer.disconnect();
+  }, [width]);
 
   useLayoutEffect(() => {
     const title = titleRef.current;
@@ -81,22 +175,97 @@ export default function Home() {
         <div className="preview-panel">
           <div className="preview-meta" aria-live="polite">
             <span>{balanced ? "문장부호 우선 균형" : "일반 줄바꿈"}</span>
-            <span>{width}px · {fontSize}px · {lineCount}줄</span>
+            <div className="preview-actions">
+              <span>{width}px · {fontSize}px · {lineCount}줄</span>
+              <button
+                className={`code-toggle ${codeOpen ? "is-open" : ""}`}
+                type="button"
+                aria-expanded={codeOpen}
+                aria-controls="rendered-code-panel"
+                onClick={() => setCodeOpen((value) => !value)}
+              >
+                <span aria-hidden="true">&lt;/&gt;</span>
+                {codeOpen ? "코드 닫기" : "코드 보기"}
+              </button>
+            </div>
           </div>
 
-          <div className="preview-stage">
-            <div ref={guideRef} className="width-guide" style={{ width: `min(${width}px, 100%)` }}>
-              <span className="guide-cap guide-cap-left" aria-hidden="true" />
-              <span className="guide-cap guide-cap-right" aria-hidden="true" />
-              <h2
-                ref={titleRef}
-                className={balanced ? "is-balanced" : ""}
-                style={{ fontSize: `${fontSize}px` }}
-              >
-                {balanced
-                  ? titleLines.map((line, index) => <span className="title-line" key={`${line}-${index}`}>{line}</span>)
-                  : (normalizeTitle(text) || "제목을 입력하세요")}
-              </h2>
+          <div className="preview-shell" ref={previewShellRef}>
+            <div
+              className={`preview-workspace ${codeOpen ? "has-code" : ""} ${codeSideBySide ? "is-side-by-side" : ""}`}
+            >
+              <div className="preview-stage">
+                <div ref={guideRef} className="width-guide" style={{ width: `min(${width}px, 100%)` }}>
+                  <span className="guide-cap guide-cap-left" aria-hidden="true" />
+                  <span className="guide-cap guide-cap-right" aria-hidden="true" />
+                  <h2
+                    ref={titleRef}
+                    className={balanced ? "is-balanced" : ""}
+                    style={{ fontSize: `${fontSize}px` }}
+                  >
+                    {balanced
+                      ? titleLines.map((line, index) => <span className="title-line" key={`${line}-${index}`}>{line}</span>)
+                      : displayText}
+                  </h2>
+                </div>
+              </div>
+
+              {codeOpen && (
+                <aside
+                  className="code-panel"
+                  id="rendered-code-panel"
+                  aria-label="현재 렌더링 코드"
+                >
+                  <div className="code-panel-heading">
+                    <div>
+                      <strong>실제 렌더 결과</strong>
+                      <span>
+                        {codeSideBySide
+                          ? "HTML · CSS 동시 보기"
+                          : balanced ? "줄별 span 구조" : "단일 텍스트 구조"}
+                      </span>
+                    </div>
+                    <button type="button" onClick={() => setCodeOpen(false)} aria-label="코드 패널 닫기">
+                      닫기
+                    </button>
+                  </div>
+
+                  <p className="code-explanation">
+                    {balanced
+                      ? "HTML 구조가 바뀝니다. 원문은 그대로 두고 계산된 줄마다 span을 만들어 시각적인 줄을 고정합니다."
+                      : "HTML은 단일 텍스트 노드입니다. 브라우저가 CSS의 단어 단위 규칙에 따라 자동으로 줄을 나눕니다."}
+                  </p>
+
+                  {codeSideBySide ? (
+                    <div className="code-dual">
+                      <CodeBlock label="HTML" code={renderedHtml} />
+                      <CodeBlock label="CSS" code={renderedCss} />
+                    </div>
+                  ) : (
+                    <div className="code-single">
+                      <div className="code-tabs" role="tablist" aria-label="코드 종류">
+                        {(["html", "css"] as const).map((tab) => (
+                          <button
+                            key={tab}
+                            type="button"
+                            role="tab"
+                            aria-selected={codeTab === tab}
+                            aria-controls="rendered-code"
+                            className={codeTab === tab ? "is-active" : ""}
+                            onClick={() => setCodeTab(tab)}
+                          >
+                            {tab.toUpperCase()}
+                          </button>
+                        ))}
+                      </div>
+
+                      <pre id="rendered-code" role="tabpanel" tabIndex={0}>
+                        <code>{codeTab === "html" ? renderedHtml : renderedCss}</code>
+                      </pre>
+                    </div>
+                  )}
+                </aside>
+              )}
             </div>
           </div>
 
@@ -162,7 +331,9 @@ export default function Home() {
           />
 
           <p className="hint">
-            전체가 한 줄에 들어가면 나누지 않습니다. 넘칠 때는 쉼표나 마침표 뒤 공백을 먼저 경계로 삼고, 36.5처럼 글자가 붙으면 무시합니다.
+            전체가 한 줄에 들어가면 나누지 않습니다. 넘칠 때는 쉼표, 마침표,
+            느낌표, 물음표 뒤 공백을 우선하되 균형이 크게 깨지면 다른 공백을
+            선택합니다. 36.5처럼 글자가 붙으면 무시합니다.
           </p>
         </aside>
       </section>
@@ -172,6 +343,28 @@ export default function Home() {
         <p>짧은 제목은 거의 즉시 계산</p>
       </footer>
     </main>
+  );
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function CodeBlock({ label, code }: { label: string; code: string }) {
+  return (
+    <section className="code-section" aria-label={`${label} 코드`}>
+      <span className="code-section-label">{label}</span>
+      <textarea
+        className="code-output"
+        aria-label={`${label} 코드 내용`}
+        value={code}
+        readOnly
+        spellCheck={false}
+      />
+    </section>
   );
 }
 

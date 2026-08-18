@@ -3,6 +3,8 @@ export type MeasureText = (value: string) => number;
 export type BalanceTitleOptions = {
   /** Characters that become preferred break boundaries when followed by whitespace. */
   priorityEndings?: readonly string[];
+  /** Reward applied to preferred punctuation breaks. Set to 0 to disable. */
+  priorityBreakBonus?: number;
   /** Penalizes a longer line following a shorter line. Set to 0 to disable. */
   ascendingLinePenalty?: number;
 };
@@ -13,7 +15,7 @@ type Candidate = {
   lastWidth: number | null;
 };
 
-const DEFAULT_PRIORITY_ENDINGS = [",", "."] as const;
+const DEFAULT_PRIORITY_ENDINGS = [",", ".", "!", "?"] as const;
 
 export function normalizeTitle(value: string): string {
   return value.trim().replace(/\s+/g, " ");
@@ -39,17 +41,26 @@ export function balanceTitle(
   if (measureText(normalized) <= maxWidth) return [normalized];
 
   const priorityEndings = options.priorityEndings ?? DEFAULT_PRIORITY_ENDINGS;
+  const priorityBreakBonus = options.priorityBreakBonus ?? 0.55;
   const ascendingLinePenalty = options.ascendingLinePenalty ?? 0.5;
   const words = normalized.split(" ");
-  const priorityGroups = splitAtPriorityEndings(words, priorityEndings);
+  const priorityBreaks = words.map(
+    (word, index) =>
+      index < words.length - 1 && hasPriorityEnding(word, priorityEndings),
+  );
 
-  if (priorityGroups.length > 1) {
-    return priorityGroups.flatMap((group) =>
-      balanceWords(group, maxWidth, measureText, ascendingLinePenalty),
-    );
+  if (!Number.isFinite(priorityBreakBonus) || priorityBreakBonus < 0) {
+    throw new RangeError("priorityBreakBonus must be a finite number greater than or equal to 0.");
   }
 
-  return balanceWords(words, maxWidth, measureText, ascendingLinePenalty);
+  return balanceWords(
+    words,
+    maxWidth,
+    measureText,
+    ascendingLinePenalty,
+    priorityBreaks,
+    priorityBreakBonus,
+  );
 }
 
 export function getMeasurementCandidates(value: string): string[] {
@@ -73,6 +84,8 @@ function balanceWords(
   maxWidth: number,
   measureText: MeasureText,
   ascendingLinePenalty: number,
+  priorityBreaks: readonly boolean[],
+  priorityBreakBonus: number,
 ): string[] {
   const fullLine = words.join(" ");
   if (measureText(fullLine) <= maxWidth) return [fullLine];
@@ -108,7 +121,8 @@ function balanceWords(
           balanceCost:
             candidate.balanceCost +
             distance * distance +
-            upwardStep * upwardStep * ascendingLinePenalty,
+            upwardStep * upwardStep * ascendingLinePenalty -
+            (priorityBreaks[end - 1] ? priorityBreakBonus : 0),
           lastWidth: lineWidth,
         };
 
@@ -123,25 +137,6 @@ function balanceWords(
   }
 
   return states.get(words.length)?.lines ?? greedyLines(words, maxWidth, measureText);
-}
-
-function splitAtPriorityEndings(
-  words: string[],
-  priorityEndings: readonly string[],
-): string[][] {
-  const groups: string[][] = [];
-  let current: string[] = [];
-
-  words.forEach((word, index) => {
-    current.push(word);
-    if (index < words.length - 1 && hasPriorityEnding(word, priorityEndings)) {
-      groups.push(current);
-      current = [];
-    }
-  });
-
-  if (current.length) groups.push(current);
-  return groups;
 }
 
 function minimumLineCount(

@@ -24,5 +24,6 @@ test("server-renders the title wrapping preview", async () => {
   assert.match(html, /글자 크기/);
   assert.match(html, /제목 영역 폭/);
   assert.match(html, /문장부호 우선 균형/);
+  assert.match(html, /코드 보기/);
   assert.doesNotMatch(html, /codex-preview/);
 });
