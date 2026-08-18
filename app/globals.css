@@ -436,6 +436,35 @@ textarea:focus {
   letter-spacing: -0.02em;
 }
 
+.comparison-label-options,
+.native-balance-option {
+  display: flex;
+  align-items: center;
+}
+
+.comparison-label-options {
+  gap: 12px;
+}
+
+.native-balance-option {
+  gap: 5px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.native-balance-option input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.native-balance-option span {
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+}
+
 .after-side .comparison-label strong {
   color: var(--accent-dark);
 }
@@ -574,6 +603,10 @@ textarea:focus {
   display: flex;
   flex-direction: column;
   text-wrap: wrap;
+}
+
+.width-guide h2.uses-native-balance {
+  text-wrap: balance;
 }
 
 .title-line {

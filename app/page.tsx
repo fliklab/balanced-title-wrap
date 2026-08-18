@@ -18,6 +18,7 @@ export default function Home() {
   const [text, setText] = useState(SAMPLE_TITLES[0]);
   const [fontSize, setFontSize] = useState(52);
   const [width, setWidth] = useState(520);
+  const [nativeBalance, setNativeBalance] = useState(false);
   const [codeOpen, setCodeOpen] = useState(false);
   const [codeTab, setCodeTab] = useState<"html" | "css">("html");
   const [lineCount, setLineCount] = useState(1);
@@ -188,13 +189,28 @@ export default function Home() {
                 <section className="comparison-side before-side" aria-labelledby="before-label">
                   <div className="comparison-label" id="before-label">
                     <strong>적용 전</strong>
-                    <span>browser wrap</span>
+                    <div className="comparison-label-options">
+                      <span>browser wrap</span>
+                      <label className="native-balance-option">
+                        <input
+                          type="checkbox"
+                          checked={nativeBalance}
+                          onChange={(event) => setNativeBalance(event.target.checked)}
+                        />
+                        <span>text-wrap: balance</span>
+                      </label>
+                    </div>
                   </div>
                   <div className="comparison-canvas">
                     <div className="width-guide" style={guideStyle}>
                       <span className="guide-cap guide-cap-left" aria-hidden="true" />
                       <WidthDragHandle width={width} onPointerDown={startWidthDrag} onKeyDown={adjustWidthWithKeyboard} />
-                      <h2 style={{ fontSize: `${fontSize}px` }}>{displayText}</h2>
+                      <h2
+                        className={nativeBalance ? "uses-native-balance" : undefined}
+                        style={{ fontSize: `${fontSize}px` }}
+                      >
+                        {displayText}
+                      </h2>
                     </div>
                   </div>
                 </section>
@@ -207,8 +223,8 @@ export default function Home() {
 
                 <section className="comparison-side after-side" aria-labelledby="after-label">
                   <div className="comparison-label" id="after-label">
-                    <strong>적용 후</strong>
-                    <span>balanced wrap</span>
+                    <strong>balanced-wrap 적용 후</strong>
+                    <span>npm package</span>
                   </div>
                   <div className="comparison-canvas">
                     <div ref={guideRef} className="width-guide" style={guideStyle}>
@@ -228,7 +244,7 @@ export default function Home() {
                 <aside className="code-panel" id="rendered-code-panel" aria-label="현재 렌더링 코드">
                   <div className="code-panel-heading">
                     <div>
-                      <strong>적용 후 렌더 결과</strong>
+                      <strong>balanced-wrap 적용 후 렌더 결과</strong>
                       <span>줄별 span 구조</span>
                     </div>
                     <button type="button" onClick={() => setCodeOpen(false)} aria-label="코드 패널 닫기">닫기</button>
