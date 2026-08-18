@@ -10,44 +10,35 @@ const SAMPLE_TITLES = [
   "36.5도의 온도는 처음으로 회원가입했을 때의 기본값이다.",
 ];
 
-const CODE_PANEL_WIDTH = 560;
-const PREVIEW_STAGE_HORIZONTAL_PADDING = 56;
+const WIDTH_MIN = 180;
+const WIDTH_MAX = 900;
+const COMPARISON_GAP = 144;
 
 export default function Home() {
   const [text, setText] = useState(SAMPLE_TITLES[0]);
   const [fontSize, setFontSize] = useState(52);
   const [width, setWidth] = useState(520);
-  const [balanced, setBalanced] = useState(true);
   const [codeOpen, setCodeOpen] = useState(false);
-  const [codeSideBySide, setCodeSideBySide] = useState(false);
   const [codeTab, setCodeTab] = useState<"html" | "css">("html");
   const [lineCount, setLineCount] = useState(1);
   const [titleLines, setTitleLines] = useState([normalizeTitle(SAMPLE_TITLES[0])]);
+  const [comparisonHorizontal, setComparisonHorizontal] = useState(false);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const guideRef = useRef<HTMLDivElement>(null);
   const previewShellRef = useRef<HTMLDivElement>(null);
   const displayText = normalizeTitle(text) || "제목을 입력하세요";
 
-  const renderedHtml = balanced
-    ? [
-        `<div class="width-guide" style="width: min(${width}px, 100%)">`,
-        `  <h2 class="is-balanced" style="font-size: ${fontSize}px">`,
-        ...titleLines.map(
-          (line) => `    <span class="title-line">${escapeHtml(line)}</span>`,
-        ),
-        "  </h2>",
-        "</div>",
-      ].join("\n")
-    : [
-        `<div class="width-guide" style="width: min(${width}px, 100%)">`,
-        `  <h2 style="font-size: ${fontSize}px">`,
-        `    ${escapeHtml(displayText)}`,
-        "  </h2>",
-        "</div>",
-      ].join("\n");
+  const renderedHtml = [
+    `<div class="width-guide" style="width: min(${width}px, 100%)">`,
+    `  <h2 class="is-balanced" style="font-size: ${fontSize}px">`,
+    ...titleLines.map(
+      (line) => `    <span class="title-line">${escapeHtml(line)}</span>`,
+    ),
+    "  </h2>",
+    "</div>",
+  ].join("\n");
 
-  const renderedCss = balanced
-    ? `.width-guide h2.is-balanced {
+  const renderedCss = `.width-guide h2.is-balanced {
   display: flex;
   flex-direction: column;
   word-break: keep-all;
@@ -56,11 +47,6 @@ export default function Home() {
 .title-line {
   display: block;
   white-space: nowrap;
-}`
-    : `.width-guide h2 {
-  white-space: normal;
-  word-break: keep-all;
-  overflow-wrap: normal;
 }`;
 
   const updateLines = useCallback(() => {
@@ -68,39 +54,53 @@ export default function Home() {
     const guide = guideRef.current;
     if (!title || !guide) return;
 
-    const normalized = displayText;
-    if (!balanced) {
-      setTitleLines([normalized]);
-      const styles = window.getComputedStyle(title);
-      const lineHeight = Number.parseFloat(styles.lineHeight);
-      setLineCount(Math.max(1, Math.round(title.getBoundingClientRect().height / lineHeight)));
-      return;
-    }
-
-    const lines = balanceTitleForElement(normalized, guide.clientWidth, title);
+    const lines = balanceTitleForElement(displayText, guide.clientWidth, title);
     setTitleLines(lines);
     setLineCount(lines.length);
-  }, [balanced, displayText]);
+  }, [displayText]);
+
+  const startWidthDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = width;
+
+    const move = (moveEvent: PointerEvent) => {
+      setWidth(clamp(startWidth + (moveEvent.clientX - startX) * 2, WIDTH_MIN, WIDTH_MAX));
+    };
+    const stop = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+      window.removeEventListener("pointercancel", stop);
+    };
+
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+    window.addEventListener("pointercancel", stop);
+  };
+
+  const adjustWidthWithKeyboard = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const direction = event.key === "ArrowRight" ? 1 : -1;
+    const step = event.shiftKey ? 50 : 10;
+    setWidth((current) => clamp(current + direction * step, WIDTH_MIN, WIDTH_MAX));
+  };
 
   useEffect(() => {
     if (!codeOpen) return;
-
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") setCodeOpen(false);
     };
-
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [codeOpen]);
 
   useEffect(() => {
     const elements = Array.from(document.querySelectorAll<HTMLElement>(".reveal"));
-
     if (!("IntersectionObserver" in window)) {
       elements.forEach((element) => element.classList.add("is-visible"));
       return;
     }
-
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -111,7 +111,6 @@ export default function Home() {
       },
       { rootMargin: "0px 0px -8%", threshold: 0.08 },
     );
-
     elements.forEach((element) => observer.observe(element));
     return () => observer.disconnect();
   }, []);
@@ -119,15 +118,11 @@ export default function Home() {
   useLayoutEffect(() => {
     const shell = previewShellRef.current;
     if (!shell) return;
-
-    const updateCodeLayout = () => {
-      setCodeSideBySide(
-        shell.clientWidth >= width + CODE_PANEL_WIDTH + PREVIEW_STAGE_HORIZONTAL_PADDING,
-      );
+    const updateLayout = () => {
+      setComparisonHorizontal(shell.clientWidth >= width * 2 + COMPARISON_GAP);
     };
-
-    updateCodeLayout();
-    const observer = new ResizeObserver(updateCodeLayout);
+    updateLayout();
+    const observer = new ResizeObserver(updateLayout);
     observer.observe(shell);
     return () => observer.disconnect();
   }, [width]);
@@ -136,22 +131,14 @@ export default function Home() {
     const title = titleRef.current;
     const guide = guideRef.current;
     if (!title || !guide) return;
-
     updateLines();
     const observer = new ResizeObserver(updateLines);
     observer.observe(guide);
     document.fonts?.ready.then(updateLines);
     return () => observer.disconnect();
-  }, [text, fontSize, width, balanced, updateLines]);
+  }, [text, fontSize, width, comparisonHorizontal, updateLines]);
 
-  useLayoutEffect(() => {
-    if (balanced) return;
-    const title = titleRef.current;
-    if (!title) return;
-    const styles = window.getComputedStyle(title);
-    const lineHeight = Number.parseFloat(styles.lineHeight);
-    setLineCount(Math.max(1, Math.round(title.getBoundingClientRect().height / lineHeight)));
-  }, [balanced, fontSize, text, titleLines, width]);
+  const guideStyle = { width: `min(${width}px, 100%)` };
 
   return (
     <main>
@@ -174,9 +161,9 @@ export default function Home() {
       <section className="lab reveal reveal-3" aria-label="균형 줄바꿈 테스트 도구">
         <div className="preview-panel">
           <div className="preview-meta" aria-live="polite">
-            <span>{balanced ? "문장부호 우선 균형" : "일반 줄바꿈"}</span>
+            <span>브라우저 기본 줄바꿈과 균형 줄바꿈 비교</span>
             <div className="preview-actions">
-              <span>{width}px · {fontSize}px · {lineCount}줄</span>
+              <span>{width}px · {fontSize}px · 적용 후 {lineCount}줄</span>
               <button
                 className={`code-toggle ${codeOpen ? "is-open" : ""}`}
                 type="button"
@@ -190,146 +177,109 @@ export default function Home() {
             </div>
           </div>
 
+          <div className="preview-tuning" aria-label="미리보기 조절">
+            <Control label="글자 크기" value={fontSize} min={20} max={96} unit="px" onChange={setFontSize} />
+            <Control label="제목 영역 폭" value={width} min={WIDTH_MIN} max={WIDTH_MAX} unit="px" onChange={setWidth} />
+          </div>
+
           <div className="preview-shell" ref={previewShellRef}>
-            <div
-              className={`preview-workspace ${codeOpen ? "has-code" : ""} ${codeSideBySide ? "is-side-by-side" : ""}`}
-            >
-              <div className="preview-stage">
-                <div ref={guideRef} className="width-guide" style={{ width: `min(${width}px, 100%)` }}>
-                  <span className="guide-cap guide-cap-left" aria-hidden="true" />
-                  <span className="guide-cap guide-cap-right" aria-hidden="true" />
-                  <h2
-                    ref={titleRef}
-                    className={balanced ? "is-balanced" : ""}
-                    style={{ fontSize: `${fontSize}px` }}
-                  >
-                    {balanced
-                      ? titleLines.map((line, index) => <span className="title-line" key={`${line}-${index}`}>{line}</span>)
-                      : displayText}
-                  </h2>
+            <div className="preview-workspace">
+              <div className={`comparison-stage ${comparisonHorizontal ? "is-horizontal" : "is-stacked"}`}>
+                <section className="comparison-side before-side" aria-labelledby="before-label">
+                  <div className="comparison-label" id="before-label">
+                    <strong>적용 전</strong>
+                    <span>browser wrap</span>
+                  </div>
+                  <div className="comparison-canvas">
+                    <div className="width-guide" style={guideStyle}>
+                      <span className="guide-cap guide-cap-left" aria-hidden="true" />
+                      <WidthDragHandle width={width} onPointerDown={startWidthDrag} onKeyDown={adjustWidthWithKeyboard} />
+                      <h2 style={{ fontSize: `${fontSize}px` }}>{displayText}</h2>
+                    </div>
+                  </div>
+                </section>
+
+                <div className="comparison-arrow" aria-hidden="true">
+                  <svg viewBox="0 0 48 24">
+                    <path d="M3 12h38M33 4l8 8-8 8" />
+                  </svg>
                 </div>
+
+                <section className="comparison-side after-side" aria-labelledby="after-label">
+                  <div className="comparison-label" id="after-label">
+                    <strong>적용 후</strong>
+                    <span>balanced wrap</span>
+                  </div>
+                  <div className="comparison-canvas">
+                    <div ref={guideRef} className="width-guide" style={guideStyle}>
+                      <span className="guide-cap guide-cap-left" aria-hidden="true" />
+                      <WidthDragHandle width={width} onPointerDown={startWidthDrag} onKeyDown={adjustWidthWithKeyboard} />
+                      <h2 ref={titleRef} className="is-balanced" style={{ fontSize: `${fontSize}px` }}>
+                        {titleLines.map((line, index) => (
+                          <span className="title-line" key={`${line}-${index}`}>{line}</span>
+                        ))}
+                      </h2>
+                    </div>
+                  </div>
+                </section>
               </div>
 
               {codeOpen && (
-                <aside
-                  className="code-panel"
-                  id="rendered-code-panel"
-                  aria-label="현재 렌더링 코드"
-                >
+                <aside className="code-panel" id="rendered-code-panel" aria-label="현재 렌더링 코드">
                   <div className="code-panel-heading">
                     <div>
-                      <strong>실제 렌더 결과</strong>
-                      <span>
-                        {codeSideBySide
-                          ? "HTML · CSS 동시 보기"
-                          : balanced ? "줄별 span 구조" : "단일 텍스트 구조"}
-                      </span>
+                      <strong>적용 후 렌더 결과</strong>
+                      <span>줄별 span 구조</span>
                     </div>
-                    <button type="button" onClick={() => setCodeOpen(false)} aria-label="코드 패널 닫기">
-                      닫기
-                    </button>
+                    <button type="button" onClick={() => setCodeOpen(false)} aria-label="코드 패널 닫기">닫기</button>
                   </div>
-
                   <p className="code-explanation">
-                    {balanced
-                      ? "HTML 구조가 바뀝니다. 원문은 그대로 두고 계산된 줄마다 span을 만들어 시각적인 줄을 고정합니다."
-                      : "HTML은 단일 텍스트 노드입니다. 브라우저가 CSS의 단어 단위 규칙에 따라 자동으로 줄을 나눕니다."}
+                    원문에는 줄바꿈 문자를 넣지 않습니다. 계산된 줄마다 span을 만들어 시각적인 줄만 고정합니다.
                   </p>
-
-                  {codeSideBySide ? (
-                    <div className="code-dual">
-                      <CodeBlock label="HTML" code={renderedHtml} />
-                      <CodeBlock label="CSS" code={renderedCss} />
+                  <div className="code-single">
+                    <div className="code-tabs" role="tablist" aria-label="코드 종류">
+                      {(["html", "css"] as const).map((tab) => (
+                        <button
+                          key={tab}
+                          type="button"
+                          role="tab"
+                          aria-selected={codeTab === tab}
+                          aria-controls="rendered-code"
+                          className={codeTab === tab ? "is-active" : ""}
+                          onClick={() => setCodeTab(tab)}
+                        >
+                          {tab.toUpperCase()}
+                        </button>
+                      ))}
                     </div>
-                  ) : (
-                    <div className="code-single">
-                      <div className="code-tabs" role="tablist" aria-label="코드 종류">
-                        {(["html", "css"] as const).map((tab) => (
-                          <button
-                            key={tab}
-                            type="button"
-                            role="tab"
-                            aria-selected={codeTab === tab}
-                            aria-controls="rendered-code"
-                            className={codeTab === tab ? "is-active" : ""}
-                            onClick={() => setCodeTab(tab)}
-                          >
-                            {tab.toUpperCase()}
-                          </button>
-                        ))}
-                      </div>
-
-                      <pre id="rendered-code" role="tabpanel" tabIndex={0}>
-                        <code>{codeTab === "html" ? renderedHtml : renderedCss}</code>
-                      </pre>
-                    </div>
-                  )}
+                    <pre id="rendered-code" role="tabpanel" tabIndex={0}>
+                      <code>{codeTab === "html" ? renderedHtml : renderedCss}</code>
+                    </pre>
+                  </div>
                 </aside>
               )}
             </div>
           </div>
 
           <div className="code-strip">
-            <code>
-              {balanced ? "한 줄 확인 → 구두점 경계 → 구간별 폭 균형" : "text-wrap: wrap; word-break: keep-all;"}
-            </code>
-            <span>문자열에 줄바꿈 문자 없음</span>
+            <code>한 줄 확인 → 구두점 경계 → 구간별 폭 균형</code>
+            <span>경계 손잡이를 좌우로 드래그해 폭 조절</span>
           </div>
         </div>
 
         <aside className="controls">
-          <div className="control-heading">
-            <h2>설정</h2>
-            <button
-              className={`toggle ${balanced ? "is-on" : ""}`}
-              type="button"
-              role="switch"
-              aria-checked={balanced}
-              onClick={() => setBalanced((value) => !value)}
-            >
-              <span aria-hidden="true" />
-              균형 적용
-            </button>
-          </div>
-
+          <div className="control-heading"><h2>제목 입력</h2></div>
           <div className="text-control">
             <label className="field text-field">
               <span>제목 내용</span>
-              <textarea
-                value={text}
-                onChange={(event) => setText(event.target.value)}
-                rows={3}
-                spellCheck={false}
-              />
+              <textarea value={text} onChange={(event) => setText(event.target.value)} rows={3} spellCheck={false} />
             </label>
-
             <div className="samples" aria-label="예시 제목">
               {SAMPLE_TITLES.map((sample, index) => (
-                <button key={sample} type="button" onClick={() => setText(sample)}>
-                  예시 {index + 1}
-                </button>
+                <button key={sample} type="button" onClick={() => setText(sample)}>예시 {index + 1}</button>
               ))}
             </div>
           </div>
-
-          <Control
-            label="글자 크기"
-            value={fontSize}
-            min={20}
-            max={96}
-            unit="px"
-            onChange={setFontSize}
-          />
-
-          <Control
-            label="제목 영역 폭"
-            value={width}
-            min={180}
-            max={900}
-            unit="px"
-            onChange={setWidth}
-          />
-
           <p className="hint">
             전체가 한 줄에 들어가면 나누지 않습니다. 넘칠 때는 쉼표, 마침표,
             느낌표, 물음표 뒤 공백을 우선하되 균형이 크게 깨지면 다른 공백을
@@ -346,25 +296,35 @@ export default function Home() {
   );
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, Math.round(value)));
 }
 
-function CodeBlock({ label, code }: { label: string; code: string }) {
+function escapeHtml(value: string): string {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
+type WidthDragHandleProps = {
+  width: number;
+  onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => void;
+  onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => void;
+};
+
+function WidthDragHandle({ width, onPointerDown, onKeyDown }: WidthDragHandleProps) {
   return (
-    <section className="code-section" aria-label={`${label} 코드`}>
-      <span className="code-section-label">{label}</span>
-      <textarea
-        className="code-output"
-        aria-label={`${label} 코드 내용`}
-        value={code}
-        readOnly
-        spellCheck={false}
-      />
-    </section>
+    <button
+      className="width-drag-handle"
+      type="button"
+      role="slider"
+      aria-label="제목 폭 드래그 조절"
+      aria-valuemin={WIDTH_MIN}
+      aria-valuemax={WIDTH_MAX}
+      aria-valuenow={width}
+      onPointerDown={onPointerDown}
+      onKeyDown={onKeyDown}
+    >
+      <span aria-hidden="true" />
+    </button>
   );
 }
 
@@ -382,7 +342,6 @@ function Control({ label, value, min, max, unit, onChange }: ControlProps) {
     const next = Number(rawValue);
     if (Number.isFinite(next)) onChange(Math.min(max, Math.max(min, next)));
   };
-
   const fill = ((value - min) / (max - min)) * 100;
 
   return (
@@ -390,14 +349,7 @@ function Control({ label, value, min, max, unit, onChange }: ControlProps) {
       <div className="field-row">
         <label htmlFor={`range-${label}`}>{label}</label>
         <div className="number-input">
-          <input
-            aria-label={`${label} 숫자 입력`}
-            type="number"
-            value={value}
-            min={min}
-            max={max}
-            onChange={(event) => update(event.target.value)}
-          />
+          <input aria-label={`${label} 숫자 입력`} type="number" value={value} min={min} max={max} onChange={(event) => update(event.target.value)} />
           <span>{unit}</span>
         </div>
       </div>
@@ -411,9 +363,7 @@ function Control({ label, value, min, max, unit, onChange }: ControlProps) {
         onChange={(event) => onChange(Number(event.target.value))}
         style={{ "--fill": `${fill}%` } as React.CSSProperties}
       />
-      <div className="range-ends" aria-hidden="true">
-        <span>{min}</span><span>{max}</span>
-      </div>
+      <div className="range-ends" aria-hidden="true"><span>{min}</span><span>{max}</span></div>
     </div>
   );
 }
